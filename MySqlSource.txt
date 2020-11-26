@@ -1,0 +1,35 @@
+CREATE TABLE `MarketData` (
+  `MarketDataGUID` char(38) NOT NULL,
+  `MarketSymbol` varchar(45) NOT NULL,
+  `Bid` decimal(20,10) NOT NULL,
+  `Ask` decimal(20,10) NOT NULL,
+  `UpdatedDateTime` datetime DEFAULT NULL,
+  `CreatedDateTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`MarketDataGUID`),
+  UNIQUE KEY `MarketDataGUID_UNIQUE` (`MarketDataGUID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+CREATE DEFINER=`root`@`%` PROCEDURE `MarketDataAddValue`(
+IN MarketDataGUIDValue Char(38),
+IN MarketSymbolValue Varchar(45),
+IN BidValue Decimal(20,10),
+IN AskValue Decimal(20,10))
+Begin
+	Declare C int;
+	Select Count(MarketDataGUID)
+    Into C
+	From StockMarket.MarketData
+	Where MarketSymbol=MarketSymbolValue;
+
+	if C=0 Then
+		Insert Into StockMarket.MarketData(MarketDataGUID,MarketSymbol,Bid,Ask,UpdatedDateTime)
+		Values (MarketDataGUIDValue,MarketSymbolValue,BidValue,AskValue,CURRENT_TIMESTAMP);
+	Else
+		Update StockMarket.MarketData
+		Set Bid=BidValue,
+		Ask=AskValue,
+		UpdatedDateTime=CURRENT_TIMESTAMP
+		Where MarketSymbol=MarketSymbolValue;
+	End If;
+End

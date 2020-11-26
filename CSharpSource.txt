@@ -1,0 +1,66 @@
+using System;
+using System.Threading.Tasks;
+
+namespace StreamConsumerCore
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            while (true)
+            {
+                Task t = GetData();
+                t.Wait();
+            }
+        }
+        private static async Task GetData()
+        {
+            string strOutput = "";
+            string[] strData;
+            string[] strElements;
+            using (System.Net.WebSockets.ClientWebSocket cws = new System.Net.WebSockets.ClientWebSocket())
+            {
+                await cws.ConnectAsync(new Uri("wss://fxstream.quum.us/data"), System.Threading.CancellationToken.None);
+                while (cws.State == System.Net.WebSockets.WebSocketState.Open)
+                {
+                    ArraySegment<byte> bytesReceived = new ArraySegment<byte>(new byte[2048]);
+                    System.Net.WebSockets.WebSocketReceiveResult result = await cws.ReceiveAsync(bytesReceived, System.Threading.CancellationToken.None);
+                        
+                    strOutput =System.Text.Encoding.UTF8.GetString(bytesReceived.Array, 0, result.Count);
+                    Console.WriteLine(strOutput);
+                    strData = strOutput.Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (string strLine in strData)
+                    {
+                        strElements = strLine.Split(new string[] { "," }, StringSplitOptions.None);
+                        //more complete code would do a double.TryParse instead...
+                        if(strElements.Length==3)
+                            AddStock(strElements[0], double.Parse(strElements[1]), double.Parse(strElements[2]));
+
+                        else
+                        { //logerror
+                        }
+                    }
+                    System.Threading.Thread.Sleep(1000);
+                }
+            }
+        }
+
+        private static void AddStock(string MarketSymbol, double Bid,double Ask )
+        {
+            Guid MarketDataGUID = Guid.NewGuid();
+            using (MySql.Data.MySqlClient.MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection("server=;user=;database=;port=;password="))
+            using (MySql.Data.MySqlClient.MySqlCommand cmd = new MySql.Data.MySqlClient.MySqlCommand("MarketDataAddValue", conn))
+            {
+                cmd.CommandType = System.Data.CommandType.StoredProcedure;
+
+                cmd.Parameters.AddWithValue("MarketDataGUIDValue", MarketDataGUID.ToString()).Direction=System.Data.ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("MarketSymbolValue", MarketSymbol).Direction=System.Data.ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("BidValue", Bid).Direction=System.Data.ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("AskValue", Ask).Direction=System.Data.ParameterDirection.Input;
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+    }
+}
